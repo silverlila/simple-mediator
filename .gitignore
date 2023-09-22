@@ -1,0 +1,23 @@
+# Node.js
+node_modules/
+
+# Output of TypeScript compilation
+/dist/
+
+# IDE/Editor specific files
+.vscode/
+.idea/
+
+# Logs and debugging files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+pnpm-debug.log*
+logs/
+log.txt
+
+# Dependency directories
+/jspm_packages/
+/bower_components/
