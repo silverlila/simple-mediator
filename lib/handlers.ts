@@ -1,27 +1,56 @@
-import { HandlerFn, HandlerOptions } from "./types";
+import { Handler, HandlerCallback, Middleware } from "./types";
 
-export class Handler<Req = any, Res = any> {
-  public handler: HandlerFn<Req, Res>;
-  public validate?: (request: Req) => Error | null = undefined;
+export function createHandler<Req, Res>(
+  callback: HandlerCallback<Req, Res>
+): Handler<Req, Res> {
+  let middlewares: Middleware<Req>[] = [];
+  let validate: ((request: Req) => Error | null) | undefined;
 
-  constructor(handler: HandlerFn<Req, Res>, options: HandlerOptions<Req> = {}) {
-    this.handler = handler;
-    this.validate = options.validate;
-  }
-}
+  const cache = new Map<string, Res>();
+  let isCachingEnabled = false;
 
-export class HandlerRegistry {
-  private handlers = new Map<string, Handler>();
+  const handler = {
+    enableCaching: () => {
+      isCachingEnabled = true;
+      return handler;
+    },
 
-  register<Req, Res>(key: string, handler: Handler<Req, Res>): void {
-    this.handlers.set(key, handler);
-  }
+    addValidator: (callback: (request: Req) => Error | null) => {
+      validate = callback;
+      return handler;
+    },
 
-  unregister(key: string): void {
-    this.handlers.delete(key);
-  }
+    addMiddleware: (callback: Middleware<Req>) => {
+      middlewares.push(callback);
+      return handler;
+    },
 
-  getHandler<Req, Res>(key: string): Handler<Req, Res> | undefined {
-    return this.handlers.get(key);
-  }
+    execute: async (request: Req) => {
+      if (validate) {
+        const error = validate(request);
+        if (error) throw error;
+      }
+
+      let processedRequest = request;
+      for (const middlewareFunc of middlewares) {
+        processedRequest = await middlewareFunc(processedRequest);
+      }
+
+      const cacheKey = JSON.stringify(processedRequest);
+      if (isCachingEnabled && cache.has(cacheKey)) {
+        const cachedResult = cache.get(cacheKey);
+        if (cachedResult) return cachedResult;
+      }
+
+      const result = await callback(processedRequest);
+
+      if (isCachingEnabled) {
+        cache.set(cacheKey, result);
+      }
+
+      return result;
+    },
+  };
+
+  return handler;
 }

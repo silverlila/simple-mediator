@@ -1,83 +1,83 @@
-import { SimpleMediator } from "../lib/index";
-import { Mediator } from "../lib/types";
+import { createMediator } from "../lib/index";
+import { createHandler } from "../lib/handlers";
 
 describe("Mediator", () => {
-  let mediator: Mediator;
+  it("should register a handler and call it", async () => {
+    const mediator = createMediator();
+    const createUser = jest.fn().mockResolvedValue("UserCreated");
 
-  beforeEach(() => {
-    mediator = new SimpleMediator();
+    mediator.register("createUser", createUser);
+    const result = await mediator.createUser("test");
+
+    expect(createUser).toHaveBeenCalledWith("test");
+    expect(result).toBe("UserCreated");
   });
 
-  it("should register and execute a handler", async () => {
-    const requestKey = "testRequest";
-    const response = "testResponse";
+  it("should apply global middleware to requests", async () => {
+    const mediator = createMediator();
+    const mockHandler = jest.fn().mockResolvedValue("handled");
+    const mockMiddleware = jest.fn((req) => ({ ...req, modified: true }));
 
-    mediator.register<string, string>(requestKey, async () => {
-      return response;
+    mediator.register("handle", mockHandler);
+    mediator.useGlobalMiddleware(mockMiddleware);
+
+    await mediator.handle({ original: true });
+
+    expect(mockMiddleware).toHaveBeenCalledWith({ original: true });
+    expect(mockHandler).toHaveBeenCalledWith({
+      original: true,
+      modified: true,
     });
+  });
+});
 
-    const result = await mediator.send<string, string>(requestKey, "");
-    expect(result).toBe(response);
+describe("Handler", () => {
+  it("should enable caching and return cached results", async () => {
+    const mockCallback = jest.fn().mockResolvedValue("response");
+    const handler = createHandler(mockCallback);
+
+    const result1 = await handler.execute("request");
+    const result2 = await handler.execute("request");
+
+    expect(mockCallback).toHaveBeenCalledTimes(1);
+    expect(result1).toBe("response");
+    expect(result2).toBe("response");
   });
 
-  it("should throw an validation error", async () => {
-    type User = { username: string; password: string };
-    const handler = (user: User) => {
-      return Promise.resolve(user);
-    };
+  it("should validate requests and throw on invalid", async () => {
+    const mockCallback = jest.fn().mockResolvedValue("response");
+    const handler = createHandler(mockCallback);
 
-    const validate = (user: User) => {
-      return new Error("Validation Error");
-    };
-
-    mediator.register("user", handler, { validate });
-
-    const result = (await mediator.send("user", {
-      username: "",
-      password: "",
-    })) as Error;
-    expect(result?.message).toBe("Validation Error");
-  });
-
-  it("should register and execute a handler by passing an object", async () => {
-    const requestKey = "addNumbers";
-    const request = { num1: 2, num2: 3 };
-    const response = 5;
-
-    mediator.register<typeof request, number>(requestKey, async (args) => {
-      return args.num1 + args.num2;
-    });
-
-    const result = await mediator.send<typeof request, number>(
-      requestKey,
-      request
+    handler.addValidator((req) =>
+      req !== "valid" ? new Error("Invalid") : null
     );
-    expect(result).toBe(response);
+
+    await expect(handler.execute("invalid")).rejects.toThrow("Invalid");
+    await expect(handler.execute("valid")).resolves.toBe("response");
   });
+});
 
-  it("should return an error for an unregistered request", async () => {
-    const requestKey = "unregisteredRequest";
+describe("Mediator + Handler Integration", () => {
+  it("should apply both global middleware and handler middleware", async () => {
+    const mediator = createMediator();
+    const mockHandler = (data: { value: number }) =>
+      Promise.resolve(data.value * 2);
 
-    const result = (await mediator.send(requestKey, "")) as Error;
-    expect(result).toBeInstanceOf(Error);
-    expect(result.message).toBe(
-      `No handler found for request key: ${requestKey}`
-    );
-  });
+    const globalMiddleware = jest.fn(async (req) => ({ value: req.value + 1 }));
+    const handlerMiddleware = jest.fn(async (req) => ({
+      value: req.value + 2,
+    }));
 
-  it("should handle errors thrown by the handler", async () => {
-    const requestKey = "errorRequest";
-    const errorMessage = "Handler error";
+    mediator
+      .register("mockHandler", mockHandler)
+      ?.addMiddleware(handlerMiddleware);
 
-    mediator.register<string, string>(requestKey, async () => {
-      throw new Error(errorMessage);
-    });
+    mediator.useGlobalMiddleware(globalMiddleware);
 
-    const result = (await mediator.send<string, string>(
-      requestKey,
-      ""
-    )) as Error;
-    expect(result).toBeInstanceOf(Error);
-    expect(result?.message).toBe(errorMessage);
+    const result = await mediator.mockHandler({ value: 1 });
+
+    expect(globalMiddleware).toHaveBeenCalledWith({ value: 1 });
+    expect(handlerMiddleware).toHaveBeenCalledWith({ value: 2 });
+    expect(result).toBe(8); // (1 + 1 + 2) * 2
   });
 });

@@ -1,86 +1,86 @@
-import { Handler, HandlerRegistry } from "./handlers";
-import { Middleware } from "./middleware";
+import { createHandler } from "./handlers";
 import {
   ErrorMiddleware,
-  HandlerFn,
-  HandlerOptions,
+  Handler,
+  HandlerCallback,
   Mediator,
-  MiddlewareStage,
+  Middleware,
 } from "./types";
 
-export class SimpleMediator implements Mediator {
-  private handlersRegistry = new HandlerRegistry();
-  private middleware = new Middleware();
+export function createMediator() {
+  const handlers = new Map<string, Handler<any, any>>();
+  const globalMiddlewares: Middleware<any, any>[] = [];
+  const errorMiddlewares: ErrorMiddleware[] = [];
 
-  register<Req, Res>(
+  const register = <Req, Res>(
     key: string,
-    handler: HandlerFn<Req, Res>,
-    options: HandlerOptions<Req> = {}
-  ): void {
-    const handlerEntry = new Handler<Req, Res>(handler, options);
-    this.handlersRegistry.register(key, handlerEntry);
-  }
+    callback: HandlerCallback<Req, Res>
+  ): Handler<Req, Res> => {
+    const handler = createHandler(callback);
+    handlers.set(key, handler);
+    return handler;
+  };
 
-  unregister(key: string): void {
-    this.handlersRegistry.unregister(key);
-  }
+  const useGlobalMiddleware = <TInput, TOutput>(
+    callback: Middleware<TInput, TOutput>
+  ) => {
+    globalMiddlewares.push(callback);
+  };
 
-  useMiddleware<Req, Res>(
-    callback: (args: Req | Res) => Promise<Req | Res>,
-    stage: MiddlewareStage
-  ): void {
-    this.middleware.addMiddleware(callback, stage);
-  }
+  const useErrorMiddleware = (callback: ErrorMiddleware) => {
+    errorMiddlewares.push(callback);
+  };
 
-  useGlobalMiddleware<Req>(callback: (args: Req) => Promise<Req>): void {
-    this.middleware.addGlobalMiddleware(callback);
-  }
-
-  useErrorMiddleware(callback: ErrorMiddleware): void {
-    this.middleware.addErrorMiddleware(callback);
-  }
-
-  async send<Req, Res>(key: string, request: Req): Promise<Res | Error> {
-    const handlerData = this.handlersRegistry.getHandler<Req, Res>(key);
-
-    if (!handlerData) return new Error(`No handler found for key: ${key}`);
-
-    const { handler, validate } = handlerData;
-    const { middleware, globalMiddleware, errorMiddleware } = this.middleware;
+  const send = async <Req, Res>(
+    key: string,
+    request: Req
+  ): Promise<Res | Error> => {
+    const handler = handlers.get(key) as Handler<Req, Res>;
+    if (!handler) return new Error(`No handler found for key: ${key}`);
 
     try {
-      let processedRequest = request;
-
-      // Execute "before" middleware
-      for (const middlewareFunc of middleware.before) {
-        processedRequest = await middlewareFunc(processedRequest);
+      let processedRequest: any = request;
+      for (const middleware of globalMiddlewares) {
+        processedRequest = await middleware(processedRequest);
       }
 
-      for (const middlewareFunc of globalMiddleware) {
-        processedRequest = await middlewareFunc(processedRequest);
-      }
-
-      if (validate) {
-        const validationError = validate(processedRequest);
-        if (validationError) throw validationError;
-      }
-
-      let result = await handler(processedRequest);
-
-      // Execute "after" middleware
-      for (const middlewareFunc of middleware.after) {
-        result = await middlewareFunc(result);
-      }
-
-      return result;
+      const result = await handler.execute(processedRequest as Req);
+      return result as Res | Error;
     } catch (error) {
       let processedError = error as Error;
 
-      // Execute error middleware
-      for (const middlewareFunc of errorMiddleware) {
-        processedError = await middlewareFunc(processedError);
+      for (const middleware of errorMiddlewares) {
+        processedError = await middleware(processedError);
       }
+
       return processedError;
     }
-  }
+  };
+
+  return new Proxy<Mediator>(
+    {
+      register,
+      useGlobalMiddleware,
+      useErrorMiddleware,
+      send,
+    },
+    {
+      get(target, property, receiver) {
+        if (typeof property === "string" && !(property in target)) {
+          return (request: any) => target.send(property, request);
+        }
+        return Reflect.get(target, property, receiver);
+      },
+    }
+  );
 }
+
+const createUser = (name: string) => {
+  return Promise.resolve({ user: name });
+};
+
+const container = createMediator();
+
+container.register("createUser", createUser);
+
+container.createUser();

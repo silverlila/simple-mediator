@@ -1,26 +1,23 @@
-export type HandlerFn<Req, Res> = (args: Req) => Promise<Res>;
-
-export type HandlerOptions<Req> = {
-  validate?: (request: Req) => Error | null;
-};
-
-export interface Mediator {
+export type Mediator = {
   register<Req, Res>(
     key: string,
-    handler: (args: Req) => Promise<Res>,
-    options?: HandlerOptions<Req>
-  ): void;
-  unregister(key: string): void;
-  send<Req, Res>(key: string, request: Req): Promise<Res | Error>;
-  useGlobalMiddleware<Req>(middleware: (args: Req) => Promise<Req>): void;
-}
-
-export interface ErrorMiddleware {
-  (error: Error): Promise<Error>;
-}
-
-export type MiddlewareStage = "before" | "after";
-
-export type MiddlewareDictionary = {
-  [stage in MiddlewareStage]: ((args: any) => Promise<any>)[];
+    callback: HandlerCallback<Req, Res>
+  ): Handler<Req, Res>;
+  useGlobalMiddleware<T, U = T>(callback: Middleware<T, U>): void;
+  useErrorMiddleware(callback: ErrorMiddleware): void;
+  send<Req = any, Res = any>(key: string, request: Req): Promise<Res | Error>;
+  [key: string]: any;
 };
+
+export type Handler<Req, Res> = {
+  enableCaching: () => Handler<Req, Res>;
+  addValidator: (callback: (request: Req) => Error | null) => Handler<Req, Res>;
+  addMiddleware: (callback: Middleware<Req>) => Handler<Req, Res>;
+  execute: (request: Req) => Promise<Res>;
+};
+
+export type HandlerCallback<Req, Res> = (args: Req) => Promise<Res>;
+
+export type Middleware<T, U = T> = (args: T) => Promise<U>;
+
+export type ErrorMiddleware = (error: Error) => Promise<Error>;
