@@ -18,7 +18,7 @@ A simple yet powerful mediator library for orchestrating and handling operations
 ### Basic Usage
 
 ```typescript
-import { createMediator } from "path-to-mediator-lib";
+import { createMediator } from "simple-mediator";
 
 const mediator = createMediator<{
   createUser: { request: string; response: string };
@@ -35,17 +35,18 @@ console.log(response); // Outputs: "Hello, John Doe"
 ### Middleware
 
 ```typescript
-import { createMediator } from "path-to-mediator-lib";
+import { createMediator } from "simple-mediator";
+
 const mediator = createMediator<{
-greetUser: { request: string; response: string };
+  greetUser: { request: string; response: string };
 }>();
 
 const handler = mediator.register("greetUser", async (name: string) => {
-return Promise.resolve(Hello, ${name});
+  return Promise.resolve(Hello, ${name});
 });
 
 handler.addPreMiddleware((name, next) => {
-return next(Mr. ${name});
+  return next(Mr. ${name});
 });
 
 const response = await mediator.greetUser("John Doe");
@@ -55,7 +56,8 @@ console.log(response); // Outputs: "Hello, Mr. John Doe"
 ### Validation
 
 ```typescript
-import { createMediator } from "path-to-mediator-lib";
+import { createMediator } from "simple-mediator";
+
 const mediator = createMediator<{
   createUser: { request: string; response: string };
 }>();
@@ -81,7 +83,7 @@ try {
 ### Error Handling
 
 ```typescript
-import { createMediator } from "path-to-mediator-lib";
+import { createMediator } from "simple-mediator";
 
 const mediator = createMediator<{
   throwError: { request: string; response: string };

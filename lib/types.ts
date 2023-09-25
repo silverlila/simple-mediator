@@ -24,11 +24,29 @@ export type ResponseOf<
 > = H[K]["response"];
 
 export type MediatorMethods<H extends HandlerSchema> = {
+  /**
+   * Registers a handler for a specific key.
+   * @param key The unique identifier for the handler.
+   * @param callback The handler function that takes a request and returns a promise resolving with the response.
+   * @returns A handler instance which is tied to the provided request and response types.
+   */
   register<K extends keyof H>(
     key: K,
     callback: (req: RequestOf<H, K>) => Promise<ResponseOf<H, K>>
   ): Handler<RequestOf<H, K>, ResponseOf<H, K>>;
-  addlMiddleware<Input>(callback: Middleware<Input>): void;
+
+  /**
+   * Adds a global middleware that will be executed for all handler requests.
+   * @param callback The middleware function to process and potentially transform the input.
+   */
+  addMiddleware<Input>(callback: Middleware<Input>): void;
+
+  /**
+   * Sends a request to a registered handler and receives a response (or an error).
+   * @param key The unique identifier for the handler.
+   * @param req The request payload.
+   * @returns A promise that resolves with the handler's response or an error.
+   */
   send<K extends keyof HandlerSchema>(
     key: K,
     req: RequestOf<HandlerSchema, K>

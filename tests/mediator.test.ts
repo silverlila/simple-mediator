@@ -1,57 +1,38 @@
-import { createMediator } from "../lib/index";
-import { createHandler } from "../lib/handler";
+import { createMediator } from "../lib/mediator"; // adjust path if needed
+import { Mediator, NoHandlerError } from "../lib/types";
+
+type HandlersSchema = {
+  greet: { request: string; response: string };
+  add: { request: { a: number; b: number }; response: number };
+};
 
 describe("Mediator", () => {
-  it("should register a handler and call it", async () => {
-    const mediator = createMediator();
-    const createUser = jest.fn().mockResolvedValue("UserCreated");
+  let mediator: Mediator<HandlersSchema>;
 
-    mediator.register("createUser", createUser);
-    const result = await mediator.createUser("test");
-
-    expect(createUser).toHaveBeenCalledWith("test");
-    expect(result).toBe("UserCreated");
+  beforeEach(() => {
+    mediator = createMediator<HandlersSchema>();
   });
 
-  it("should apply global middleware to requests", async () => {
-    const mediator = createMediator();
-    const mockHandler = jest.fn().mockResolvedValue("handled");
-    const mockMiddleware = jest.fn((req) => ({ ...req, modified: true }));
+  it("should register and send to a handler", async () => {
+    mediator.register("greet", (name) => Promise.resolve(`Hello, ${name}!`));
+    const response = await mediator.send("greet", "John");
+    expect(response).toBe("Hello, John!");
+  });
 
-    mediator.register("handle", mockHandler);
-    mediator.useGlobalMiddleware(mockMiddleware);
+  it("should throw an error if no handler registered", async () => {
+    await expect(mediator.send("greet", "John")).rejects.toThrow(
+      NoHandlerError()
+    );
+  });
 
-    await mediator.handle({ original: true });
-
-    expect(mockMiddleware).toHaveBeenCalledWith({ original: true });
-    expect(mockHandler).toHaveBeenCalledWith({
-      original: true,
-      modified: true,
+  it("should apply middlewares", async () => {
+    mediator.register("add", (data) => Promise.resolve(data.a + data.b));
+    mediator.addMiddleware<any>(async (data) => {
+      data.a = data.a * 2;
+      data.b = data.b * 2;
+      return data;
     });
-  });
-});
-
-describe("Mediator + Handler Integration", () => {
-  it("should apply both global middleware and handler middleware", async () => {
-    const mediator = createMediator();
-    const mockHandler = (data: { value: number }) =>
-      Promise.resolve(data.value * 2);
-
-    const globalMiddleware = jest.fn(async (req) => ({ value: req.value + 1 }));
-    const handlerMiddleware = jest.fn(async (req) => ({
-      value: req.value + 2,
-    }));
-
-    mediator
-      .register("mockHandler", mockHandler)
-      ?.addMiddleware(handlerMiddleware);
-
-    mediator.addGlobalMiddleware(globalMiddleware);
-
-    const result = await mediator.mockHandler({ value: 1 });
-
-    expect(globalMiddleware).toHaveBeenCalledWith({ value: 1 });
-    expect(handlerMiddleware).toHaveBeenCalledWith({ value: 2 });
-    expect(result).toBe(8); // (1 + 1 + 2) * 2
+    const response = await mediator.send("add", { a: 2, b: 3 });
+    expect(response).toBe(10);
   });
 });
