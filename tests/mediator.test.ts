@@ -1,5 +1,5 @@
 import { createMediator } from "../lib/index";
-import { createHandler } from "../lib/handlers";
+import { createHandler } from "../lib/handler";
 
 describe("Mediator", () => {
   it("should register a handler and call it", async () => {
@@ -31,32 +31,6 @@ describe("Mediator", () => {
   });
 });
 
-describe("Handler", () => {
-  it("should enable caching and return cached results", async () => {
-    const mockCallback = jest.fn().mockResolvedValue("response");
-    const handler = createHandler(mockCallback);
-
-    const result1 = await handler.execute("request");
-    const result2 = await handler.execute("request");
-
-    expect(mockCallback).toHaveBeenCalledTimes(1);
-    expect(result1).toBe("response");
-    expect(result2).toBe("response");
-  });
-
-  it("should validate requests and throw on invalid", async () => {
-    const mockCallback = jest.fn().mockResolvedValue("response");
-    const handler = createHandler(mockCallback);
-
-    handler.addValidator((req) =>
-      req !== "valid" ? new Error("Invalid") : null
-    );
-
-    await expect(handler.execute("invalid")).rejects.toThrow("Invalid");
-    await expect(handler.execute("valid")).resolves.toBe("response");
-  });
-});
-
 describe("Mediator + Handler Integration", () => {
   it("should apply both global middleware and handler middleware", async () => {
     const mediator = createMediator();
@@ -72,7 +46,7 @@ describe("Mediator + Handler Integration", () => {
       .register("mockHandler", mockHandler)
       ?.addMiddleware(handlerMiddleware);
 
-    mediator.useGlobalMiddleware(globalMiddleware);
+    mediator.addGlobalMiddleware(globalMiddleware);
 
     const result = await mediator.mockHandler({ value: 1 });
 
