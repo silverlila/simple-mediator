@@ -38,6 +38,7 @@ describe("Handler", () => {
       }
       return { isValid: true };
     });
+
     await expect(handler.execute({ age: -5 })).rejects.toThrow(
       "Age cannot be negative"
     );

@@ -17,6 +17,7 @@ export function createHandler<Req, Res>(
   const errorMiddlewares: Middleware<Error>[] = [];
 
   let validate: Validator<Req> | null = null;
+
   let isCachingEnabled = false;
   const cache = new Map<string, CacheValue<Res>>();
 
@@ -54,22 +55,27 @@ export function createHandler<Req, Res>(
       isCachingEnabled = true;
       return handler;
     },
+
     addValidator: (validator: Validator<Req>) => {
       validate = validator;
       return handler;
     },
+
     addPreMiddleware: (callback: Middleware<Req>) => {
       preMiddlewares.push(callback);
       return handler;
     },
+
     addPostMiddleware: (callback: Middleware<Res>) => {
       postMiddlewares.push(callback);
       return handler;
     },
+
     addErrorMiddleware: (callback: Middleware<Error>) => {
       errorMiddlewares.push(callback);
       return handler;
     },
+
     execute: async (request: Req) => {
       const processedRequest = await executeMiddlewares(
         preMiddlewares,
@@ -78,9 +84,7 @@ export function createHandler<Req, Res>(
 
       if (validate) {
         const { isValid, message } = validate(processedRequest);
-        if (!isValid) {
-          throw new Error(message || "Validation error");
-        }
+        if (!isValid) throw new Error(message || "Validation error");
       }
 
       const cacheKey = generateCacheKey(processedRequest);

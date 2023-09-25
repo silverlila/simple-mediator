@@ -15,7 +15,9 @@ describe("Mediator", () => {
 
   it("should register and send to a handler", async () => {
     mediator.register("greet", (name) => Promise.resolve(`Hello, ${name}!`));
+
     const response = await mediator.send("greet", "John");
+
     expect(response).toBe("Hello, John!");
   });
 
@@ -27,11 +29,13 @@ describe("Mediator", () => {
 
   it("should apply middlewares", async () => {
     mediator.register("add", (data) => Promise.resolve(data.a + data.b));
+
     mediator.addMiddleware<any>(async (data) => {
       data.a = data.a * 2;
       data.b = data.b * 2;
       return data;
     });
+
     const response = await mediator.send("add", { a: 2, b: 3 });
     expect(response).toBe(10);
   });

@@ -1,28 +1,3 @@
-export type Handler<Req, Res> = {
-  enableCaching: () => Handler<Req, Res>;
-  addValidator: (callback: Validator<Req>) => Handler<Req, Res>;
-  addPreMiddleware: (callback: Middleware<Req>) => Handler<Req, Res>;
-  addPostMiddleware: (callback: Middleware<Res>) => Handler<Req, Res>;
-  addErrorMiddleware: (callback: Middleware<Error>) => Handler<Req, Res>;
-  execute: (request: Req) => Promise<Res>;
-};
-
-export type HandlerCallback<Req, Res> = (request: Req) => Promise<Res>;
-
-export type HandlerSchema = {
-  [key: string]: { request: any; response: any };
-};
-
-export type RequestOf<
-  H extends HandlerSchema,
-  K extends keyof H
-> = H[K]["request"];
-
-export type ResponseOf<
-  H extends HandlerSchema,
-  K extends keyof H
-> = H[K]["response"];
-
 export type MediatorMethods<H extends HandlerSchema> = {
   /**
    * Registers a handler for a specific key.
@@ -52,6 +27,31 @@ export type MediatorMethods<H extends HandlerSchema> = {
     req: RequestOf<HandlerSchema, K>
   ): Promise<Error | ResponseOf<HandlerSchema, K>>;
 };
+
+export type Handler<Req, Res> = {
+  enableCaching: () => Handler<Req, Res>;
+  addValidator: (callback: Validator<Req>) => Handler<Req, Res>;
+  addPreMiddleware: (callback: Middleware<Req>) => Handler<Req, Res>;
+  addPostMiddleware: (callback: Middleware<Res>) => Handler<Req, Res>;
+  addErrorMiddleware: (callback: Middleware<Error>) => Handler<Req, Res>;
+  execute: (request: Req) => Promise<Res>;
+};
+
+export type HandlerCallback<Req, Res> = (request: Req) => Promise<Res>;
+
+export type HandlerSchema = {
+  [key: string]: { request: any; response: any };
+};
+
+export type RequestOf<
+  H extends HandlerSchema,
+  K extends keyof H
+> = H[K]["request"];
+
+export type ResponseOf<
+  H extends HandlerSchema,
+  K extends keyof H
+> = H[K]["response"];
 
 export type Mediator<H extends HandlerSchema> = MediatorMethods<H> & {
   [K in keyof H]: (req: H[K]["request"]) => Promise<Error | H[K]["response"]>;
