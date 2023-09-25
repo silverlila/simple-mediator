@@ -1,7 +1,3 @@
----
-title: simple-mediator
----
-
 # simple-mediator
 
 A simple yet powerful mediator library for orchestrating and handling operations with optional middleware and caching support.
